@@ -1,0 +1,28 @@
+==============================================================================
+EGOS-2000 Cheat Sheet (Compile, Run, Git)
+==============================================================================
+
+1. HOW TO COMPILE THE OPERATING SYSTEM
+------------------------------------------------------------------------------
+Run this command in Windows PowerShell or Command Prompt. It opens MSYS2 bash 
+in the background, sets up the compiler paths, and builds the binaries.
+
+C:\msys64\usr\bin\bash.exe -lc 'export PATH=$PATH:/d/Downloads/xpack-riscv-none-elf-gcc-15.2.0-1-win32-x64/xpack-riscv-none-elf-gcc-15.2.0-1/bin:/c/msys64/ucrt64/bin && cd /c/Users/write/.gemini/antigravity/scratch/egos-2000 && make install CC=gcc'
+
+
+2. HOW TO RUN THE EMULATOR (QEMU)
+------------------------------------------------------------------------------
+Run this command in PowerShell or Command Prompt to launch EGOS in QEMU:
+
+qemu-system-riscv32 -M virt -smp 4 -m 8M -bios tools/egos.bin -nographic -drive if=pflash,format=raw,unit=1,file=tools/qemuROM.bin -device sdhci-pci,addr=0x1 -device sd-card,drive=MMC -drive if=none,file=tools/disk.img,format=raw,id=MMC
+
+* To exit QEMU at any time: Press `Ctrl + A` together, let go, then press `X`.
+
+
+3. HOW TO PUSH YOUR CHANGES TO GITHUB
+------------------------------------------------------------------------------
+If you make code changes, run these in PowerShell to commit and push:
+
+git add earth/boot.c earth/mini_sha.h
+git commit -m "Your commit description here"
+git push -u origin main
