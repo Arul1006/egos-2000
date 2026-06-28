@@ -53,10 +53,20 @@ char vexriscv[SIZE_2MB * 2], exec[SIZE_2MB], fs[SIZE_2MB];
 
 int load_file(char* file_name, char* dst) {
     struct stat st;
-    stat(file_name, &st);
+    if (stat(file_name, &st) != 0) {
+        printf("[ERROR] Failed to stat %s\n", file_name);
+        return 0;
+    }
     int fd = open(file_name, O_RDONLY);
-    for (uint nread = 0; nread < st.st_size;)
-        nread += read(fd, dst + nread, st.st_size - nread);
+    if (fd < 0) {
+        printf("[ERROR] Failed to open %s\n", file_name);
+        return 0;
+    }
+    for (uint nread = 0; nread < st.st_size;) {
+        int r = read(fd, dst + nread, st.st_size - nread);
+        if (r <= 0) break;
+        nread += r;
+    }
     close(fd);
 
     return st.st_size;
@@ -127,21 +137,24 @@ int main() {
     filesys->write(filesys, BIN_DIR_INODE, 0, (void*)bin_dir);
     printf("[INFO] Load ino=%ld, %s\n", BIN_DIR_INODE, bin_dir);
 
+#ifndef O_BINARY
+#define O_BINARY 0
+#endif
     /* Generate the disk image file. */
-    int fd  = open("disk.img", O_CREAT | O_WRONLY, 0666);
+    int fd  = open("disk.img", O_CREAT | O_WRONLY | O_BINARY, 0666);
     int sz1 = write(fd, exec, SIZE_2MB);
     sz1 += write(fd, fs, SIZE_2MB);
     close(fd);
 
     /* Generate the ROM image files. */
-    fd = open("fpgaROM.bin", O_CREAT | O_WRONLY, 0666);
-    assert(load_file(CPU_BIN_FILE, vexriscv) < SIZE_2MB * 2);
+    fd = open("fpgaROM.bin", O_CREAT | O_WRONLY | O_BINARY, 0666);
+    int cpu_size = load_file(CPU_BIN_FILE, vexriscv);
     int sz2 = write(fd, vexriscv, SIZE_2MB * 2);
     sz2 += write(fd, exec, SIZE_2MB);
     sz2 += write(fd, fs, SIZE_2MB);
     close(fd);
 
-    fd      = open("qemuROM.bin", O_CREAT | O_WRONLY, 0666);
+    fd      = open("qemuROM.bin", O_CREAT | O_WRONLY | O_BINARY, 0666);
     int sz3 = write(fd, exec, SIZE_2MB);
     for (uint i = 0; i < 15; i++) sz3 += write(fd, fs, SIZE_2MB);
     /* Simply pad the image to 32MB which is required by QEMU. */

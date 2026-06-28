@@ -7,6 +7,7 @@
  */
 
 #include "egos.h"
+#include "mini_sha.h"
 
 void tty_init();
 void disk_init();
@@ -65,6 +66,28 @@ void boot() {
          * and SECRC bits of RCTL (Receive Control Register) to 1. */
 
         /* Student's code ends here. */
+
+        uint16_t expected_hash[8] = {0x122a, 0x8ccb, 0xe6b8, 0xe82e, 0x650d, 0x1cd3, 0xea8e, 0x89f0};
+        uint16_t hash_output[8];
+        
+        // 1. Calculate the hash
+        mini_sha_hash("hello world", hash_output);
+        
+        // 2. Check if the output matches the expected hash
+        int is_valid = 1;
+        for (int i = 0; i < 8; i++) {
+            if (hash_output[i] != expected_hash[i]) {
+                is_valid = 0;
+            }
+        }
+        
+        // 3. Decide whether to boot or freeze!
+        if (is_valid) {
+            SUCCESS("Booted");
+        } else {
+            CRITICAL("Boot Failed");
+            while(1); // Infinite loop freezes the computer!
+        }
 
         grass_entry(core_id);
     } else {

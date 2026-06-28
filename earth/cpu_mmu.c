@@ -206,12 +206,8 @@ void mmu_init() {
 
     /* Student's code ends here. */
 
-    CRITICAL("Choose a memory translation mechanism:");
-    printf("Enter 0: page tables\n\rEnter 1: software TLB\n\r");
-
-    char buf[2];
-    for (buf[0] = 0; buf[0] != '0' && buf[0] != '1'; earth->tty_read(&buf[0]));
-    earth->translation = (buf[0] == '0') ? PAGE_TABLE : SOFT_TLB;
+    /* Bypass prompt and default to Page Tables */
+    earth->translation = PAGE_TABLE;
     INFO("%s translation is chosen",
          earth->translation == PAGE_TABLE ? "Page table" : "Software");
 

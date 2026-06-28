@@ -36,6 +36,11 @@
 #pragma once
 #include "disk.h"
 
+#if defined(_WIN32) || defined(_WIN64)
+typedef unsigned int uint;
+#endif
+
+
 #define NINODES 128
 typedef struct inode_store* inode_intf;
 
