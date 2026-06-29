@@ -8,6 +8,7 @@
 
 #include "egos.h"
 #include "mini_sha.h"
+#include "file/disk.h"
 
 void tty_init();
 void disk_init();
@@ -17,6 +18,8 @@ void grass_entry(uint core_id);
 
 struct grass* grass = (void*)GRASS_STRUCT;
 struct earth* earth = (void*)EARTH_STRUCT;
+#define KERNEL_BUFFER_SIZE 20480  // 20KB (5 blocks * 4096 bytes)
+static char kernel_buffer[KERNEL_BUFFER_SIZE];
 
 /* Student's code goes here (Ethernet & TCP/IP). */
 
@@ -67,21 +70,57 @@ void boot() {
 
         /* Student's code ends here. */
 
-        uint16_t expected_hash[8] = {0x122a, 0x8ccb, 0xe6b8, 0xe82e, 0x650d, 0x1cd3, 0xea8e, 0x89f0};
-        uint16_t hash_output[8];
+        //uint16_t expected_hash[8] = {0x122a, 0x8ccb, 0xe6b8, 0xe82e, 0x650d, 0x1cd3, 0xea8e, 0x89f0};
+        //uint16_t hash_output[8];
         
-        // 1. Calculate the hash
-        mini_sha_hash("hello world", hash_output);
+                // 1. Read the kernel (5 blocks) from the disk into our buffer
+        for (int i = 0; i < 37; i++) {
+            earth->disk_read(SYS_PROC_EXEC_START + i, 1, kernel_buffer + (i * 512));
+        }
+
+        // 2. Define the expected hash for the kernel
+        uint16_t expected_hash[8] = {0x443b, 0x2cae, 0x2a23, 0xad18, 0xc78d, 0xf3ab, 0x04cf, 0x9850};
         
-        // 2. Check if the output matches the expected hash
+        // 3. Map pointers to specific memory register addresses
+        volatile uint16_t* golden_hash_reg = (volatile uint16_t*)0x8000F000;
+        volatile uint16_t* calc_hash_reg   = (volatile uint16_t*)0x8000F100;
+        
+        // 4. Load the Golden Hash into its memory register
+        for (int i = 0; i < 8; i++) {
+            golden_hash_reg[i] = expected_hash[i];
+        }
+        
+        // 5. Calculate the hash of the kernel buffer and write it directly to the Calculated Hash memory register
+        mini_sha_hash(kernel_buffer, 18668, (uint16_t*)calc_hash_reg);
+        
+        /*// 6. Compare the two registers
         int is_valid = 1;
         for (int i = 0; i < 8; i++) {
-            if (hash_output[i] != expected_hash[i]) {
+            if (calc_hash_reg[i] != golden_hash_reg[i]) {
+                is_valid = 0;
+            }
+        } */
+
+                // 6. Compare the two registers
+        printf("[DEBUG] Golden Hash: ");
+        for (int i = 0; i < 8; i++) {
+            printf("%x ", golden_hash_reg[i]);
+        }
+        printf("\n\r");
+        printf("[DEBUG] Calculated Hash: ");
+        for (int i = 0; i < 8; i++) {
+            printf("%x ", calc_hash_reg[i]);
+        }
+        printf("\n\r");
+
+        int is_valid = 1;
+        for (int i = 0; i < 8; i++) {
+            if (calc_hash_reg[i] != golden_hash_reg[i]) {
                 is_valid = 0;
             }
         }
         
-        // 3. Decide whether to boot or freeze!
+        // 7. Decide whether to boot or freeze!
         if (is_valid) {
             SUCCESS("Booted");
         } else {

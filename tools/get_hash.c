@@ -1,5 +1,8 @@
+#include <stdio.h>
 #include <stdint.h>
-#include <string.h>
+#include <stdlib.h>
+
+#define MASK 0xFFFF
 
 static inline uint16_t rotr(uint16_t x, uint8_t n) { return (x >> n) | (x << (16 - n)); }
 static inline uint16_t shr(uint16_t x, uint8_t n) { return x >> n; }
@@ -42,36 +45,14 @@ static inline void compress(uint16_t* H, const uint16_t* block_words) {
     H[4] += e; H[5] += f; H[6] += g; H[7] += h;
 }
 
-/*  static inline void mini_sha_hash(const char* message, uint16_t* out_H) {
-    int len = strlen(message);
-    for (int i = 0; i < 8; i++) out_H[i] = IV[i];
-    
-    uint8_t padded[16] = {0};
-    for (int i = 0; i < len; i++) padded[i] = message[i];
-    padded[len] = 0x80;
-    
-    uint16_t bits = len * 8;
-    padded[14] = (bits >> 8) & 0xFF;
-    padded[15] = bits & 0xFF;
-    
-    uint16_t block_words[8];
-    for (int i = 0; i < 8; i++) {
-        block_words[i] = (padded[2*i] << 8) | padded[2*i+1];
-    }
-    
-    compress(out_H, block_words);
-} */
-
-static inline void mini_sha_hash(const char* message, int len, uint16_t* out_H) {
+void mini_sha_hash(const char* message, int len, uint16_t* out_H) {
     for (int i = 0; i < 8; i++) out_H[i] = IV[i];
     
     int bytes_processed = 0;
     
-    // 1. Process all full 16-byte blocks
     while (len - bytes_processed >= 16) {
         uint16_t block_words[8];
         for (int i = 0; i < 8; i++) {
-            // Reconstruct 16-bit words from the byte stream (big-endian)
             block_words[i] = ((uint8_t)message[bytes_processed + 2*i] << 8) | 
                              (uint8_t)message[bytes_processed + 2*i + 1];
         }
@@ -79,27 +60,20 @@ static inline void mini_sha_hash(const char* message, int len, uint16_t* out_H) 
         bytes_processed += 16;
     }
     
-    // 2. Handle the final padding blocks (can be 1 or 2 blocks)
     int remaining = len - bytes_processed;
     uint8_t last_blocks[32] = {0}; 
     
-    // Copy remaining bytes
     for (int i = 0; i < remaining; i++) {
         last_blocks[i] = message[bytes_processed + i];
     }
-    // Append the '1' bit (0x80)
     last_blocks[remaining] = 0x80;
     
-    // If the remaining bytes + 0x80 + length field (2 bytes) exceed 16 bytes,
-    // we need two final blocks. Otherwise, one final block is enough.
     int total_padding_len = (remaining >= 14) ? 32 : 16;
     
-    // Append 16-bit length field at the very end (big-endian)
     uint16_t bits = len * 8;
     last_blocks[total_padding_len - 2] = (bits >> 8) & 0xFF;
     last_blocks[total_padding_len - 1] = bits & 0xFF;
     
-    // Process the final padding block(s)
     for (int b = 0; b < total_padding_len; b += 16) {
         uint16_t block_words[8];
         for (int i = 0; i < 8; i++) {
@@ -107,4 +81,39 @@ static inline void mini_sha_hash(const char* message, int len, uint16_t* out_H) 
         }
         compress(out_H, block_words);
     }
+}
+
+int main() {
+    FILE* f = fopen("build/release/sys_proc.elf", "rb");
+    if (!f) {
+        printf("Error: Could not open file\n");
+        return 1;
+    }
+
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+
+    char* buffer = malloc(size);
+    fread(buffer, 1, size, f);
+    fclose(f);
+
+    uint16_t hash[8];
+    mini_sha_hash(buffer, size, hash);
+
+    printf("Kernel File Size: %ld bytes\n", size);
+    printf("Golden Hash (Hex): ");
+    for (int i = 0; i < 8; i++) {
+        printf("%04x", hash[i]);
+    }
+    printf("\n");
+
+    printf("Golden Hash (C Array): ");
+    for (int i = 0; i < 8; i++) {
+        printf("0x%04x%s", hash[i], (i == 7) ? "" : ", ");
+    }
+    printf("\n");
+
+    free(buffer);
+    return 0;
 }
