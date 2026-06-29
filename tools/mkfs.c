@@ -57,7 +57,7 @@ int load_file(char* file_name, char* dst) {
         printf("[ERROR] Failed to stat %s\n", file_name);
         return 0;
     }
-    int fd = open(file_name, O_RDONLY);
+    int fd = open(file_name, O_RDONLY | O_BINARY);
     if (fd < 0) {
         printf("[ERROR] Failed to open %s\n", file_name);
         return 0;

@@ -79,7 +79,7 @@ void boot() {
         }
 
         // 2. Define the expected hash for the kernel
-        uint16_t expected_hash[8] = {0x443b, 0x2cae, 0x2a23, 0xad18, 0xc78d, 0xf3ab, 0x04cf, 0x9850};
+        uint16_t expected_hash[8] = {0x55b8, 0x7f70, 0x1fdc, 0x94e9, 0xf295, 0xe879, 0x1418, 0x98bb};
         
         // 3. Map pointers to specific memory register addresses
         volatile uint16_t* golden_hash_reg = (volatile uint16_t*)0x8000F000;
